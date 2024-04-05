@@ -6,9 +6,11 @@ const passport = require('passport');
 
 const local = require('./strategies/local');
 const db = require('./database');
+
 const app = express();
 
 const authRouter = require('./routes/auth');
+const users = require('./routes/user');
 
 
 
@@ -32,11 +34,8 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-
-
-
-
 app.use('/auth', authRouter);
+app.use('/user', users);
 //REST BELOW
 let todos = [];
 
@@ -52,17 +51,19 @@ function isAuthenticated(req, res, next) {
 
 
 // GET request to retrieve all todos
-app.get('/api/todos', isAuthenticated, (req, res) => {
+//app.get('/api/todos', isAuthenticated, (req, res) => {
+
+app.get('/api/todos', (req, res) => {
     res.json(todos);
 });
 
 
 app.get('/api/data', isAuthenticated, async (req, res) => {
-    const result = await db.promise().query('SELECT * FROM DELIVERY_AREA');
+    const result = await db.promise().query('SELECT * FROM users');
 
 
      console.log('Query results:', result);
-    res.json(result);
+    res.json(result[0]);
 });
 
 
@@ -85,8 +86,6 @@ app.get('/api/todos/:id', (req, res) => {
 app.post('/api/todos', (req, res) => {
 
     if (req.user) {
-
-
         const newTodo = req.body;
         todos.push(newTodo);
         res.status(200).json(newTodo);

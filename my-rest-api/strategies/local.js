@@ -1,24 +1,30 @@
 
 const LocalStrategy = require('passport-local');
 const passport = require('passport');
+
+const db = require('../database');
 //const User = require('../models/User');
 
 // Assuming you have a User model
 
 
 passport.serializeUser((user, done) => {
-    done(null, user.username);
+    done(null, user.userID);
 });
 
 
-passport.deserializeUser(async(username, done) => {
-    try{
-        if(username === 'admin'){
-            done(null, { username: 'admin' });
-        }
-
-    }catch(error){
-        done(error, false);
+passport.deserializeUser(async(id, done) => {
+    try {
+     //   console.log(id);
+        const result = await db.promise().query('SELECT * FROM users WHERE id = ?', [id]);
+        const user = {
+            userID: result[0][0].id,
+            username: result[0][0].username
+        };
+      
+        done(null, user);
+    } catch (error) {
+        done(error, null);
     }
     
 });
@@ -31,33 +37,20 @@ passport.use(
         // },
         async (username, password, done) => {
             try {
-
-
-                // try {
-                //     // Find the user by email
-                //     const user = await User.findOne({ email });
-
-                //     // If user not found or password doesn't match, return error
-                //     if (!user || !user.verifyPassword(password)) {
-                //         return done(null, false, { message: 'Invalid email or password' });
-                //     }
-
-                //     // If user is found and password matches, return the user
-                //     return done(null, user);
-                // } catch (error) {
-                //     return done(error);
-                // }
-
-
-                console.log('statement reached');
-                if (username === 'admin' && password === 'admin') {
-                    console.log('statement reached');
-                    return done(null, { username: 'admin' });
-                } else {
+                const result = await db.promise().query('SELECT * FROM users WHERE username = ?', [username]);
+                if (result[0].length === 0) {
                     return done(null, false, { message: 'Invalid username or password' });
+                } else {
+                    const user = result[0][0];
+                    if (user.password === password) {
+                       // console.log(user);
+                        return done(null, { userID: user.id, username: user.username });
+                    } else {
+                        return done(null, false, { message: 'Invalid username or password' });
+                    }
                 }
             } catch (error) {
-                done(error, false, { message: 'Invalid username or password' });
+                return done(error, false, { message: 'Invalid username or password' });
             }
         }
     )
