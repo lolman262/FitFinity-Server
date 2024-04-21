@@ -4,23 +4,79 @@ const db = require('../database');
 
 const router = express.Router();
 
+const multer = require('multer');
 
+router.use(express.urlencoded({ extended: false }));
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + file.originalname); // Append extension
+    }
+});
+
+const upload = multer({ storage: storage });
+// export const useUploadProfileImage = () => {
+//     return useMutation(
+//         (data) => 
+//             api
+//                 .post(Endpoints.Media.Upload, data, {
+//                     headers: { "Content-Type": "multipart/form-data" },
+//                     })
+//                 .then((res) => {
+//                     console.log(res?.data?.result)
+//                     console.log(res?.data?.result.path)
+//                     return res?.data?.result.path
+//                     })
+//     )
+// }
 
 // Register route
-router.post('/register', (req, res) => {
-    const { username, password } = req.body;
+router.post('/register', upload.single('profilePicture'), async (req, res) => {
+    const { username, password, email, age, weight, gender } = req.body;
+    //console.log(req.body);
+    //const username = req.body.username;
+    console.log("username : " + username);
 
-    // Insert the username and password into the 'users' table
-    const query = `INSERT INTO users (username, password) VALUES ('${username}', '${password}')`;
+    const profilePicture = req.file.path;
+    // console.log("pfp : " + profilePicture);
 
-    db.query(query, (error, results) => {
+
+
+
+    const checkQuery = `SELECT * FROM users WHERE username = '${username}'`;
+    db.query(checkQuery, (error, results) => {
         if (error) {
-            console.error('Error registering user:', error);
-            res.status(500).json({ error: 'Failed to register user' });
+            console.error('Error checking username:', error);
+            res.status(500).send('Failed to check username');
         } else {
-            res.status(200).json({ message: 'User registered successfully' });
+            if (results.length > 0) {
+                console.log("Username already taken")
+                res.status(409).send('Username already taken');
+            } else {
+                console.log("Username is available");
+
+
+                //console.log(profilePicture);
+                const pfpPicWithSlash = profilePicture.replace(/\\/g, '\\\\');
+                const query = `INSERT INTO users VALUES (NULL, '${username}', '${password}','${email}', '${pfpPicWithSlash}','${age}','${weight}','${gender}');`;
+                console.log(query);
+                db.query(query, (error, results) => {
+                    if (error) {
+                        console.error('Error registering user:', error);
+                        res.status(500).json({ error: 'Failed to register user' });
+                    } else {
+                        res.status(200).json({ message: 'User registered successfully' });
+                    }
+                });
+                
+            }
+
         }
     });
+
+
 });
 
 

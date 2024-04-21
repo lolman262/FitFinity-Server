@@ -32,18 +32,18 @@ passport.deserializeUser(async(id, done) => {
 
 passport.use(
     new LocalStrategy(
-        // {
-        //     usernameField: 'email', // Assuming you're using email as the username field
-        // },
+
         async (username, password, done) => {
+            
             try {
                 const result = await db.promise().query('SELECT * FROM users WHERE username = ?', [username]);
                 if (result[0].length === 0) {
+                    
                     return done(null, false, { message: 'Invalid username or password' });
                 } else {
                     const user = result[0][0];
                     if (user.password === password) {
-                       // console.log(user);
+                        console.log("authenticated, "+ user.id);
                         return done(null, { userID: user.id, username: user.username });
                     } else {
                         return done(null, false, { message: 'Invalid username or password' });

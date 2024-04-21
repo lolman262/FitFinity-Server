@@ -13,21 +13,44 @@ const authRouter = require('./routes/auth');
 const users = require('./routes/user');
 
 
+const https = require('https');
+const fs = require('fs');
 
+const cors = require('cors');
 
+//const app = express();
+const port = 443;
+
+//const port = process.env.PORT || 3000;
 
 // Configure express-session middleware
 app.use(session({
     secret: 'your-secret-key', // Replace 'your-secret-key' with a secret key for session encryption
     resave: false,
     cookie: {
-        maxAge: 60 * 60 * 1000 // 1 hour
+        maxAge: 60 * 60 * 1000, // 1 hour
+        secure: true,
+        httpOnly: false,
+         sameSite: 'none'
+
+      //
     },
     saveUninitialized: false
 }));
 
-
+app.enable('trust proxy');
 app.use(bodyParser.json());
+
+const corsOptions = {
+    'allowedHeaders': ['sessionId', 'Content-Type'],
+    'preflightContinue': true,
+  //  origin: 'http://localhost:8000/',
+    origin: 'https://web.imnewwdomain.uk',//(https://your-client-app.com)
+    optionsSuccessStatus: 200,
+    credentials: true
+  };
+ 
+  app.use(cors(corsOptions));
 
 
 app.use(passport.initialize());
@@ -49,7 +72,9 @@ function isAuthenticated(req, res, next) {
 }
 
 
-
+app.get('/', (req, res) => {
+    res.send('Hello World');
+});
 // GET request to retrieve all todos
 //app.get('/api/todos', isAuthenticated, (req, res) => {
 
@@ -130,39 +155,35 @@ app.delete('/api/todos/:id', (req, res) => {
     res.status(404).json({ message: "Todo not found" });
 });
 
-const port = process.env.PORT || 3000;
+
+
+
+//Load SSL/TLS certificates
+const options = {
+    key: fs.readFileSync('certs/server.key'),
+    cert: fs.readFileSync('certs/server.cert')
+  };
+
+// const options = {
+//     key: fs.readFileSync('CFcerts/server.key'),
+//     cert: fs.readFileSync('CFcerts/server.pem')
+//   };
+
+//START ON HTTP ON PORT
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 })
 
 
-//session login 
-app.post('/api/login', (req, res) => {
-    console.log(req.sessionID);
-    const { username, password } = req.body;
-    // console.log('test ' + username);
-
-    if (username && password) {
-        if (req.session.authenticated) {
-            console.log('already authenticated');
-            res.json(req.session);
-        } else {
-            if (username === 'admin' && password === 'admin') {
-
-                req.session.authenticated = true;
-                console.log('admin admin correct');
-                req.session.authUser = { username, password };
-                res.json(req.session);
-            } else {
-                res.status(401).json({ message: 'Invalid username or password' });
-            }
-        }
-    } else {
-        res.status(401).json({ message: 'Bad credentials' });
-    }
+// // Create HTTPS server
+// https.createServer(options, app).listen(port, () => {
+//     console.log(`Server is running on https://localhost:${port}`);
+//   });
 
 
-});
+
+
+
 
 
 
