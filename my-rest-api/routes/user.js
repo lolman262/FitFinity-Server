@@ -34,7 +34,7 @@ const upload = multer({ storage: storage });
 
 // Register route
 router.post('/register', upload.single('profilePicture'), async (req, res) => {
-    const { username, password, email, age, weight, gender } = req.body;
+    const { username, password, email, age, weight, gender, height } = req.body;
     //console.log(req.body);
     //const username = req.body.username;
     console.log("username : " + username);
@@ -57,10 +57,10 @@ router.post('/register', upload.single('profilePicture'), async (req, res) => {
             } else {
                 console.log("Username is available");
 
-
+                console.log(age)
                 //console.log(profilePicture);
                 const pfpPicWithSlash = profilePicture.replace(/\\/g, '\\\\');
-                const query = `INSERT INTO users VALUES (NULL, '${username}', '${password}','${email}', '${pfpPicWithSlash}','${age}','${weight}','${gender}');`;
+                const query = `INSERT INTO users VALUES (NULL, '${username}', '${password}','${email}', '${pfpPicWithSlash}',${age},${weight},'${gender}', ${height});`;
                 console.log(query);
                 db.query(query, (error, results) => {
                     if (error) {
@@ -113,5 +113,12 @@ router.get('/:id', async (req, res) => {
         res.json(result[0]);
     }
 });
+
+// Test route
+router.post('/test', upload.single('profilePicture'), (req, res) => {
+    console.log(req.body);
+    res.sendStatus(200);
+});
+
 
 module.exports = router;

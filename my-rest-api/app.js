@@ -12,11 +12,12 @@ const app = express();
 const authRouter = require('./routes/auth');
 const users = require('./routes/user');
 
-
+//const workouts = require('./routes/addFitness');
 const https = require('https');
 const fs = require('fs');
-
+const fitnessAssistant = require('./openai/fitness_assistant');
 const cors = require('cors');
+
 
 //const app = express();
 const port = 443;
@@ -31,9 +32,9 @@ app.use(session({
         maxAge: 60 * 60 * 1000, // 1 hour
         secure: true,
         httpOnly: false,
-         sameSite: 'none'
+        sameSite: 'none'
 
-      //
+        //
     },
     saveUninitialized: false
 }));
@@ -44,13 +45,13 @@ app.use(bodyParser.json());
 const corsOptions = {
     'allowedHeaders': ['sessionId', 'Content-Type'],
     'preflightContinue': true,
-  //  origin: 'http://localhost:8000/',
+    //  origin: 'http://localhost:8000/',
     origin: 'https://web.imnewwdomain.uk',//(https://your-client-app.com)
     optionsSuccessStatus: 200,
     credentials: true
-  };
- 
-  app.use(cors(corsOptions));
+};
+
+app.use(cors(corsOptions));
 
 
 app.use(passport.initialize());
@@ -59,6 +60,7 @@ app.use(passport.session());
 
 app.use('/auth', authRouter);
 app.use('/user', users);
+//app.use('/workout', workouts);
 //REST BELOW
 let todos = [];
 
@@ -75,8 +77,77 @@ function isAuthenticated(req, res, next) {
 app.get('/', (req, res) => {
     res.send('Hello World');
 });
-// GET request to retrieve all todos
-//app.get('/api/todos', isAuthenticated, (req, res) => {
+
+app.get('/workout/retrieve', isAuthenticated, (req, res) => {
+    const query = `SELECT * FROM workout WHERE username = '${req.user.username}' ORDER BY created_at DESC`;
+    db.query(query, (error, results) => {
+        if (error) {
+            console.error('Error retrieving workout from database:', error);
+            res.status(500).json({ error: 'Failed to retrieve workout from database' });
+        } else {
+
+            console.log(results);
+            res.json(results);
+        }
+    });
+});
+
+
+app.post('/workout/addPlan', isAuthenticated, async (req, res) => {
+    try {
+        const { age, height, gender, weight, goal, experience, gym_equipment } = req.body;
+        console.log(req.user);
+
+        // Validate inputs
+        if (!age || !height || !gender || !goal || !weight || !experience || !gym_equipment) {
+            res.status(400).json({ error: 'Missing required fields' });
+            return;
+        }
+
+
+        const result = await fitnessAssistant.runAssistant(age, `${height} cm`, gender, goal, weight, experience, gym_equipment);
+        console.log("result: " + result);
+        const resultJson = JSON.parse(result.replace(/'/g, "\\'"));
+
+        if (result == '{ }' || result == '{}') {
+            res.status(500).json({ error: 'Error generating workout plan' });
+            throw new Error('Error generating workout plan');
+        }
+
+
+        const query = `INSERT INTO workout VALUES ( NULL, '${req.user.username}', NOW(), 
+        '${resultJson.day_1_title}', '${resultJson.day_1_content}', 
+        '${resultJson.day_2_title}', '${resultJson.day_2_content}', 
+        '${resultJson.day_3_title}', '${resultJson.day_3_content}', 
+        '${resultJson.day_4_title}', '${resultJson.day_4_content}', 
+        '${resultJson.day_5_title}', '${resultJson.day_5_content}',
+        '${resultJson.day_6_title}', '${resultJson.day_6_content}',
+        '${resultJson.day_7_title}', '${resultJson.day_7_content}');`;
+
+
+
+
+
+
+
+        console.log(query);
+        db.query(query, (error, results) => {
+            if (error) {
+                console.error('Error adding workout to database:', error);
+
+                res.status(500).json({ error: 'Failed to add workout to database' });
+            } else {
+                res.json(JSON.parse(result));
+
+            }
+        });
+
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: 'An error occurred' });
+    }
+});
 
 app.get('/api/todos', (req, res) => {
     res.json(todos);
@@ -87,7 +158,7 @@ app.get('/api/data', isAuthenticated, async (req, res) => {
     const result = await db.promise().query('SELECT * FROM users');
 
 
-     console.log('Query results:', result);
+    console.log('Query results:', result);
     res.json(result[0]);
 });
 
@@ -138,6 +209,24 @@ app.put('/api/todos/:id', (req, res) => {
 //test
 
 
+
+
+app.get('/user', isAuthenticated, (req, res) => {
+    const query = `SELECT username, weight, age,gender, height, profile_picture_path FROM users WHERE username = '${req.user.username}'`;
+    db.query(query, (error, results) => {
+        if (error) {
+            console.error('Error retrieving current user from database:', error);
+            res.status(500).json({ error: 'Failed to retrieve current user from database' });
+        } else {
+
+            res.json(results[0]);
+        }
+    });
+});
+
+app.use('/uploads', express.static('uploads'));
+
+
 // DELETE request to delete a todo
 app.delete('/api/todos/:id', (req, res) => {
     const todoId = req.params.id;
@@ -162,7 +251,7 @@ app.delete('/api/todos/:id', (req, res) => {
 const options = {
     key: fs.readFileSync('certs/server.key'),
     cert: fs.readFileSync('certs/server.cert')
-  };
+};
 
 // const options = {
 //     key: fs.readFileSync('CFcerts/server.key'),
